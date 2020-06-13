@@ -194,7 +194,7 @@ class YoloFaceNetwork(torch.nn.Module):
         x_small, y_small = self.detection_model[0](x_small)
         x_medium, y_medium = self.detection_model[1](x_small, x_medium)
         _, y_large = self.detection_model[2](x_medium, x_large)
-        return y_small.size(), y_medium.size(), y_large.size()
+        return y_small, y_medium, y_large
 
 
 if __name__ == '__main__':
