@@ -91,7 +91,10 @@ class FeatureExtractionBlock(torch.nn.Module):
 
 class DetectionBlock(torch.nn.Module):
     """
+    Basic block of detection network from:
+    https://doi.org/10.1007/s00371-020-01831-7
 
+    Based on Feature Pyramid Network core idea
     """
     def __init__(self, in_channels, _channels, out_channels, mode='up_conv'):
         assert mode in ('up_conv', 'conv')
@@ -143,7 +146,13 @@ class DetectionBlock(torch.nn.Module):
 
 class YoloFaceNetwork(torch.nn.Module):
     """
+    Modification of YOLOv3 network from
+    https://doi.org/10.1007/s00371-020-01831-7
 
+    Feature extraction network: DarkNet backbone with increased number
+    of network layers of the first two residual blocks
+
+    Detection network: Feature Pyramid Network
     """
     def __init__(self, num_anchors, num_classes):
         super(YoloFaceNetwork, self).__init__()
@@ -195,9 +204,3 @@ class YoloFaceNetwork(torch.nn.Module):
         x_medium, y_medium = self.detection_model[1](x_small, x_medium)
         _, y_large = self.detection_model[2](x_medium, x_large)
         return y_small, y_medium, y_large
-
-
-if __name__ == '__main__':
-    t = torch.rand(1, 3, 416, 416)
-    cls = YoloFaceNetwork(3, 2)
-    print(cls(t))
