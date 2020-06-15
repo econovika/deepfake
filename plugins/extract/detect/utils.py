@@ -5,7 +5,7 @@ def iou_and_generalized_iou(box_pred, box_truth):
     """
     Calculate IoU and GIoU between each pair of box_pred and box_truth
 
-    Adopted from TensorFlow:
+    Generalized and adopted from TensorFlow:
     https://github.com/ethanyanjiali/deep-vision/blob/6765dfcc36f209d2fded00fb11c6d1ae0da8e658/YOLO/tensorflow/utils.py#L31
 
     Used algorithm to compute GIoU:
@@ -44,4 +44,22 @@ def iou_and_generalized_iou(box_pred, box_truth):
     IoU = I / (U + 1e-7)  # Avoid division by zero
     GIoU = IoU - (area_convex - U) / (area_convex + 1e-7)  # Avoid division by zero
 
+    IoU = torch.squeeze(IoU, dim=-1)
+    GIoU = torch.squeeze(GIoU, dim=-1)
     return IoU, GIoU
+
+
+def xywh_to_x1x2y1y2(box):
+    """
+    Taken and adopted from TensorFlow:
+    https://github.com/ethanyanjiali/deep-vision/blob/6765dfcc36f209d2fded00fb11c6d1ae0da8e658/YOLO/tensorflow/utils.py#L4
+
+    """
+    xy = box[..., 0:2]
+    wh = box[..., 2:4]
+
+    x1y1 = xy - wh / 2
+    x2y2 = xy + wh / 2
+
+    y_box = torch.cat([x1y1, x2y2], dim=-1)
+    return y_box
