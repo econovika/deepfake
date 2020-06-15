@@ -1,6 +1,5 @@
 import torch
 from extract.detect.utils import iou_and_generalized_iou, xywh_to_x1x2y1y2
-import numpy as np
 
 
 class Conv2dBlock(torch.nn.Module):
@@ -367,15 +366,3 @@ class YoloLoss(torch.nn.Module):
         obj_loss = torch.sum(obj_true * entropy, dim=(1, 2, 3, 4))
         no_obj_loss = torch.sum((1 - obj_true) * entropy * ignore_mask, dim=(1, 2, 3, 4))
         return obj_loss * self.lambda_obj, no_obj_loss * self.lambda_no_obj
-
-
-if __name__ == '__main__':
-    anchors_wh = torch.tensor(np.array([[10, 13], [16, 30], [33, 23], [30, 61], [62, 45],
-                           [59, 119], [116, 90], [156, 198], [373, 326]],
-                          np.float32)) / 416
-    t = torch.rand([1, 3, 416, 416])
-    yolo = YoloFaceNetwork(num_anchors=3, num_classes=2)
-    y_small, y_medium, y_large = yolo(t)
-    y_true = torch.rand([1, 13, 13, 3, 7])
-    loss = YoloLoss(num_classes=2, valid_anchors_wh=anchors_wh[:3])
-    print(loss(y_small, y_true))
