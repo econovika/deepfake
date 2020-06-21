@@ -1,6 +1,5 @@
 import torch
 from extract.detect.utils import iou_and_generalized_iou, xywh_to_x1x2y1y2
-import numpy as np
 
 
 class Conv2dBlock(torch.nn.Module):
