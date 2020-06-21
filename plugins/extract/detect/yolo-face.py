@@ -1,11 +1,13 @@
 import torch
 from extract.detect.utils import iou_and_generalized_iou, xywh_to_x1x2y1y2
+import numpy as np
 
 
 class Conv2dBlock(torch.nn.Module):
     """
     Wrapper to standard torch.nn.Conv2d with automatic padding
     """
+
     def __init__(self, in_channels, out_channels, kernel_size=1, stride=1):
         super(Conv2dBlock, self).__init__()
         self.in_channels, self.out_channels = in_channels, out_channels
@@ -35,6 +37,7 @@ class ResBlock(torch.nn.Module):
     """
     DarkNet residual block
     """
+
     def __init__(self, in_channels):
         super(ResBlock, self).__init__()
         self.in_channels = in_channels
@@ -66,6 +69,7 @@ class FeatureExtractionBlock(torch.nn.Module):
 
     ... --> Conv2dBlock --> ResBlock * num_layers --> ...
     """
+
     def __init__(self, in_channels, out_channels, num_layers):
         super(FeatureExtractionBlock, self).__init__()
         self.in_channels, self.out_channels = in_channels, out_channels
@@ -97,6 +101,7 @@ class DetectionBlock(torch.nn.Module):
 
     Based on Feature Pyramid Network core idea
     """
+
     def __init__(self, in_channels, _channels, out_channels, mode='up_conv'):
         assert mode in ('up_conv', 'conv')
         super(DetectionBlock, self).__init__()
@@ -155,6 +160,7 @@ class YoloFaceNetwork(torch.nn.Module):
 
     Detection network: Feature Pyramid Network
     """
+
     def __init__(self, num_anchors, num_classes):
         super(YoloFaceNetwork, self).__init__()
         # 4: location offset against the anchor box: tx, ty, tw, th
@@ -290,6 +296,7 @@ class YoloLoss(torch.nn.Module):
     https://github.com/ethanyanjiali/deep-vision/blob/master/YOLO/tensorflow/yolov3.py#L352
 
     """
+
     def __init__(self, num_classes, valid_anchors_wh):
         super(YoloLoss, self).__init__()
         self.num_classes = num_classes
@@ -303,6 +310,9 @@ class YoloLoss(torch.nn.Module):
         self.lambda_cls = 0.5
         self.lambda_obj = 1
         self.lambda_no_obj = 0.5
+
+        # Factor to combine regression loss with GIoU loss
+        self.alpha = 0.1
 
     def forward(self, y_pred, y_true):
         xy_rel_pred, wh_rel_pred = y_pred[..., :2], y_pred[..., 2:4]
@@ -324,14 +334,21 @@ class YoloLoss(torch.nn.Module):
         xy_rel_true = box_rel_true[..., :2]
         wh_rel_true = box_rel_true[..., 2:4]
 
-        xy_loss = self.__reg_loss(obj_true, xy_rel_pred, xy_rel_true)
-        wh_loss = self.__reg_loss(obj_true, wh_rel_pred, wh_rel_true)
+        best_GIoU = self.__compute_best_GIoU(box_abs_pred, box_abs_true)
+        # Paragraph 3.3. Loss function
+        # https://doi.org/10.1007/s00371-020-01831-7
+        GIoU_loss = torch.tensor(1) - best_GIoU
+        GIoU_loss = GIoU_loss[:, :, :, :, None]
+
+        xy_loss = self.__reg_loss(obj_true, xy_rel_pred, xy_rel_true, GIoU_loss)
+        wh_loss = self.__reg_loss(obj_true, wh_rel_pred, wh_rel_true, GIoU_loss)
         cls_loss = self.__cls_loss(obj_true, cls_pred, cls_true)
-        ignore_mask = self.__ignore_mask(box_abs_true, box_abs_pred)
+        ignore_mask = self.__ignore_mask(best_GIoU)
         obj_loss, no_obj_loss = self.__obj_loss(ignore_mask, obj_pred, obj_true)
         return xy_loss + wh_loss + cls_loss + obj_loss
 
-    def __ignore_mask(self, box_pred, box_true):
+    @staticmethod
+    def __compute_best_GIoU(box_pred, box_true):
         box_true = box_true.reshape([box_true.size()[0], -1, 4])
         box_true, _ = torch.sort(box_true, dim=1, descending=True)
         box_true = box_true[:, :100, :]  # Take largest values
@@ -344,14 +361,17 @@ class YoloLoss(torch.nn.Module):
         best_GIoU = best_GIoU.reshape(
             [box_pred_shape[0], box_pred_shape[1], box_pred_shape[2], box_pred_shape[3]]
         )
+        return best_GIoU
+
+    def __ignore_mask(self, best_GIoU):
         ignore_mask = torch.where(
             best_GIoU < self.ignore_thresh, torch.tensor(0), torch.tensor(1)
         )
         ignore_mask = ignore_mask[:, :, :, :, None]
         return ignore_mask
 
-    def __reg_loss(self, obj_true, xy_rel_pred, xy_rel_true):
-        xy_loss = torch.sum((xy_rel_true - xy_rel_pred)**2, dim=-1)
+    def __reg_loss(self, obj_true, xy_rel_pred, xy_rel_true, GIoU_loss):
+        xy_loss = torch.sum((torch.abs(xy_rel_true - xy_rel_pred) + self.alpha * GIoU_loss) ** 2, dim=-1)
         obj_true = torch.squeeze(obj_true, dim=-1)
         xy_loss = torch.sum(xy_loss * obj_true, dim=(1, 2, 3))
         return xy_loss * self.lambda_reg
