@@ -1,9 +1,10 @@
 import os
 from PIL import Image
-from torch import tensor
+from torch import tensor, is_tensor
 from torchvision import transforms
+from collections import defaultdict
 from torch.nn.functional import pad
-from torch.utils.data import IterableDataset
+from torch.utils.data import Dataset, DataLoader
 
 
 def collate_fn(_batch):
@@ -22,29 +23,26 @@ def collate_fn(_batch):
             mode='constant',
             value=0
         ).tolist()
-    _transforms = transforms.Compose(
-        [
-            transforms.Resize(416),
-            transforms.ToTensor()
-        ]
-    )
+    if not is_tensor(batch_images[0]):
+        batch_images = [transforms.ToTensor()(image) for image in batch_images]
     return {
-        'images': [_transforms(image) for image in batch_images],
+        'images': batch_images,
         'boxes': tensor(batch_boxes)
     }
 
 
-class ExtractDataset(IterableDataset):
+class WiderDataset(Dataset):
     def __init__(self, file_path, input_dir, _transforms=None):
         """
         :param file_path: path to .txt file with input boxes
         :param input_dir: path to directory with input images
         :param _transforms: torchvision transform of images
         """
-        super(ExtractDataset, self).__init__()
+        super(WiderDataset, self).__init__()
         self.file_path = file_path
         self.input_dir = input_dir
         self._transforms = _transforms
+        self.dataset = self.process_file()
 
     def process_image(self, image_path):
         """
@@ -56,6 +54,8 @@ class ExtractDataset(IterableDataset):
         image = Image.open(image_path, mode='r')
         if self._transforms is not None:
             image = self._transforms(image)
+        else:
+            image = transforms.Resize(416)(image)
         return image
 
     def process_file(self):
@@ -63,10 +63,10 @@ class ExtractDataset(IterableDataset):
         Parse input .txt file
         :return:
         """
+        _dataset = defaultdict(list)
         with open(self.file_path, mode='r') as txt_file:
             image_path = next(txt_file, '').rstrip('\n')
             while image_path:
-                image = self.process_image(image_path)
                 n = int(next(txt_file, 0))
                 boxes = []
                 for _ in range(n):
@@ -76,8 +76,15 @@ class ExtractDataset(IterableDataset):
                 if not n:
                     boxes.append([0, 0, 0, 0])
                     next(txt_file)
-                yield {'images': image, 'boxes': boxes}
+                _dataset['images_path'].append(image_path)
+                _dataset['boxes'].append(boxes)
                 image_path = next(txt_file, '').rstrip('\n')
+        return _dataset
 
-    def __iter__(self):
-        return self.process_file()
+    def __len__(self):
+        return len(self.dataset['images_path'])
+
+    def __getitem__(self, idx):
+        image_path, boxes = self.dataset['images_path'][idx], self.dataset['boxes'][idx]
+        image = self.process_image(image_path)
+        return {'images': image, 'boxes': boxes}
