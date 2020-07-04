@@ -4,7 +4,7 @@ from torch import tensor, is_tensor
 from torchvision import transforms
 from collections import defaultdict
 from torch.nn.functional import pad
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 
 
 def collate_fn(_batch):
