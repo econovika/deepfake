@@ -223,7 +223,6 @@ class YoloFaceNetwork(torch.nn.Module):
         y_large = y_large.reshape(
             [y_large_shape[0], y_large_shape[2], y_large_shape[3], 3, -1]
         )
-
         return y_small, y_medium, y_large
 
 
@@ -289,6 +288,23 @@ def get_rel_true(y_true, valid_anchors_wh):
     return y_box
 
 
+def compute_abs_boxes(y_pred, num_classes, valid_anchors_wh, y_true=None):
+    box_abs_pred, obj_pred, cls_pred = get_abs_pred(
+        y_pred,
+        valid_anchors_wh,
+        num_classes
+    )
+    box_abs_pred = xywh_to_x1x2y1y2(box_abs_pred)
+
+    if y_true is None:
+        return box_abs_pred, obj_pred, cls_pred
+
+    xy_abs_true, wh_abs_true, obj_true, cls_true = torch.split(y_true, (2, 2, 1, num_classes), dim=-1)
+    box_abs_true = torch.cat([xy_abs_true, wh_abs_true], dim=-1)
+    box_abs_true = xywh_to_x1x2y1y2(box_abs_true)
+    return (box_abs_pred, obj_pred, cls_pred), (box_abs_true, obj_true, cls_true)
+
+
 class YoloLoss(torch.nn.Module):
     """
     Taken and adopted from TensorFlow:
@@ -318,16 +334,12 @@ class YoloLoss(torch.nn.Module):
         xy_rel_pred = torch.sigmoid(xy_rel_pred)
         wh_rel_pred = torch.sigmoid(wh_rel_pred)
 
-        xy_abs_true, wh_abs_true, obj_true, cls_true = torch.split(y_true, (2, 2, 1, self.num_classes), dim=-1)
-        box_abs_true = torch.cat([xy_abs_true, wh_abs_true], dim=-1)
-        box_abs_true = xywh_to_x1x2y1y2(box_abs_true)
-
-        box_abs_pred, obj_pred, cls_pred = get_abs_pred(
-            y_pred,
-            self.valid_anchors_wh,
-            self.num_classes
+        (box_abs_pred, obj_pred, cls_pred), (box_abs_true, obj_true, cls_true) = compute_abs_boxes(
+            y_pred=y_pred,
+            y_true=y_true,
+            num_classes=self.num_classes,
+            valid_anchors_wh=self.valid_anchors_wh
         )
-        box_abs_pred = xywh_to_x1x2y1y2(box_abs_pred)
 
         box_rel_true = get_rel_true(y_true, self.valid_anchors_wh)
         xy_rel_true = box_rel_true[..., :2]
