@@ -1,5 +1,5 @@
-from plugins.extract.detect.utils import iou_and_generalized_iou, xywh_to_x1x2y1y2
-from plugins.extract.detect.yolo_face import compute_abs_boxes
+from extract.detect.utils import iou_and_generalized_iou, xywh_to_x1x2y1y2
+from extract.detect.yolo_face import compute_abs_boxes
 from torch import nonzero, argmax, cat, stack
 
 
