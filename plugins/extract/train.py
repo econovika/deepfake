@@ -231,8 +231,14 @@ class TrainEvalModel:
                         p.join()
                     # Perform model evaluation after all processes complete one epoch
                     self.eval_step()
+                    if self.cur_patience == self.early_stopping:
+                        msg = f'Early stop at epoch: {epoch}, ' \
+                              f'max repeated non improving limit is met: {self.cur_patience}'
+                        print(msg)
+                        break
             else:
-                self.eval_step()
+                preds, GIoU_list = self.eval_step()
+                return preds, GIoU_list
         else:
             self.model.cuda()
             if is_train:
