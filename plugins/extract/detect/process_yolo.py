@@ -1,4 +1,4 @@
-from extract.detect.utils import iou_and_generalized_iou, xywh_to_x1x2y1y2
+from extract.detect.utils import iou_and_generalized_iou, xywh_to_x1y1x2y2
 from extract.detect.yolo_face import compute_abs_boxes
 from torch import nonzero, argmax, cat, stack
 
@@ -20,7 +20,7 @@ class Process:
         )
         batch_size = boxes.size()[0]
 
-        boxes = xywh_to_x1x2y1y2(boxes.reshape([batch_size, -1, 4]))
+        boxes = xywh_to_x1y1x2y2(boxes.reshape([batch_size, -1, 4]))
         objects_scores = objects_scores.reshape([batch_size, -1, 1])
         classes_probs = classes_probs.reshape([batch_size, -1, num_classes])
 
