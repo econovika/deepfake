@@ -25,8 +25,8 @@ def iou_and_generalized_iou(box_pred, box_truth):
     box_pred = box_pred.expand(shape_pred.tolist())
     box_truth = box_truth.expand(shape_truth.tolist())
 
-    pred_left, pred_top, pred_right, pred_bottom = torch.split(box_pred, split_size_or_sections=1, dim=-1)
-    truth_left, truth_top, truth_right, truth_bottom = torch.split(box_truth, split_size_or_sections=1, dim=-1)
+    pred_left, pred_bottom, pred_right, pred_top = torch.split(box_pred, split_size_or_sections=1, dim=-1)
+    truth_left, truth_bottom, truth_right, truth_top = torch.split(box_truth, split_size_or_sections=1, dim=-1)
 
     left, right = torch.max(pred_left, truth_left), torch.min(pred_right, truth_right)
     bottom, top = torch.max(pred_bottom, truth_bottom), torch.min(pred_top, truth_top)
@@ -49,11 +49,10 @@ def iou_and_generalized_iou(box_pred, box_truth):
     return IoU, GIoU
 
 
-def xywh_to_x1x2y1y2(box):
+def xywh_to_x1y1x2y2(box):
     """
     Taken and adopted from TensorFlow:
     https://github.com/ethanyanjiali/deep-vision/blob/6765dfcc36f209d2fded00fb11c6d1ae0da8e658/YOLO/tensorflow/utils.py#L4
-
     """
     xy = box[..., 0:2]
     wh = box[..., 2:4]

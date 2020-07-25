@@ -1,8 +1,8 @@
+from extract.detect.yolo_face import YoloLoss, YoloFaceNetwork
 from extract.data_loader import WiderDataset, collate_fn
 from extract.detect.utils import iou_and_generalized_iou
 from extract.detect.process_yolo import Process
-from extract.detect.yolo_face import YoloLoss
-from torch import manual_seed, no_grad, stack
+from torch import manual_seed, no_grad, stack, load
 from torch.utils.data import DataLoader
 from datetime import datetime
 from torch.optim import SGD
@@ -14,19 +14,19 @@ import torch.multiprocessing as mp
 class TrainEvalModel:
     def __init__(
             self,
-            model,
             input_data_paths,
+            model=None,
             train_batch_size=1, eval_batch_size=1,
             lr=0.01, momentum=0.8, num_epochs=10,
-            log_interval=1, num_workers=1, max_patience=5,
+            log_interval=10, num_workers=1, max_patience=5,
             model_save_dir=None, early_stopping=10,
             cuda=True,
             seed=1,
-            valid_anchors_wh=None, num_classes=2
+            valid_anchors_wh='extract/default_options/anchors', num_classes=2
     ):
         """
-        :param model: Pytorch yolo_face.YoloFaceNetwork model example
-        :param num_classes: Number of predicted classes by model (default: 2)
+        :param model: str, path to Pytorch yolo_face.YoloFaceNetwork model example
+        :param num_classes: int, Number of predicted classes by model (default: 2)
         :param input_data_paths:
         :param train_batch_size:
         :param eval_batch_size:
@@ -43,10 +43,22 @@ class TrainEvalModel:
         :param valid_anchors_wh:
         """
         self.cuda = cuda
+        self.num_classes = num_classes
 
-        self.model = model
+        with open(valid_anchors_wh, 'r') as f:
+            # Default anchors ae taken from: https://doi.org/10.1007/s00371-020-01831-7
+            # for dataset WIDER
+            # TODO: add k-means to define optimal anchors for given dataset
+            content = f.read()
+            self.valid_anchors_wh = [(w, h) for w, h in zip(content[1::2], content[2::2])]
 
-        self.num_classes, self.valid_anchors_wh = num_classes, valid_anchors_wh
+        if model is None:
+            self.model = YoloFaceNetwork(
+                num_classes=self.num_classes,
+                num_anchors=self.valid_anchors_wh
+            )
+        else:
+            self.model = load(model)
 
         self.input_data_paths = input_data_paths
 

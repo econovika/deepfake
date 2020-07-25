@@ -1,5 +1,5 @@
 import torch
-from extract.detect.utils import iou_and_generalized_iou, xywh_to_x1x2y1y2
+from extract.detect.utils import iou_and_generalized_iou, xywh_to_x1y1x2y2
 
 
 class Conv2dBlock(torch.nn.Module):
@@ -294,14 +294,14 @@ def compute_abs_boxes(y_pred, num_classes, valid_anchors_wh, y_true=None):
         valid_anchors_wh,
         num_classes
     )
-    box_abs_pred = xywh_to_x1x2y1y2(box_abs_pred)
+    box_abs_pred = xywh_to_x1y1x2y2(box_abs_pred)
 
     if y_true is None:
         return box_abs_pred, obj_pred, cls_pred
 
     xy_abs_true, wh_abs_true, obj_true, cls_true = torch.split(y_true, (2, 2, 1, num_classes), dim=-1)
     box_abs_true = torch.cat([xy_abs_true, wh_abs_true], dim=-1)
-    box_abs_true = xywh_to_x1x2y1y2(box_abs_true)
+    box_abs_true = xywh_to_x1y1x2y2(box_abs_true)
     return (box_abs_pred, obj_pred, cls_pred), (box_abs_true, obj_true, cls_true)
 
 
