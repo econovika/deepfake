@@ -80,7 +80,7 @@ def find_best_anchors(boxes, anchors):
 
 
 def preprocess_boxes(boxes, best_anchors, anchors, valid_anchors, grid_size, num_classes, num_anchors):
-    y_true = torch.zeros(grid_size, grid_size, num_anchors, (4 + 1 + num_classes))
+    y_true = torch.zeros(grid_size, grid_size, num_anchors, (4 + 1 + num_classes)).tolist()
 
     indices, updates = [], []
 
@@ -110,7 +110,6 @@ def preprocess_boxes(boxes, best_anchors, anchors, valid_anchors, grid_size, num
             updates.extend(torch.cat([box_xy, box_wh, obj, cls], dim=-1))
     indices = torch.stack(indices, dim=0).long()
     updates = torch.stack(updates, dim=0)
-    y_true = y_true.tolist()
     for index, update in zip(indices, updates):
         y_true[index[0]][index[1]][index[2]] = update.tolist()
     return torch.tensor(y_true)
