@@ -62,3 +62,55 @@ def xywh_to_x1y1x2y2(box):
 
     y_box = torch.cat([x1y1, x2y2], dim=-1)
     return y_box
+
+
+def find_best_anchors(boxes, anchors):
+    boxes_wh = boxes[..., 2:4] - boxes[..., :2]
+    boxes_wh = boxes_wh[:, :, None, :]
+    boxes_wh_shape = torch.tensor(boxes_wh.size())
+    boxes_wh_shape[2] = 9
+    boxes_wh = boxes_wh.expand(boxes_wh_shape.tolist())
+
+    intersection = min(boxes_wh[..., 0], anchors[..., 0]) * min(boxes_wh[..., 1], anchors[..., 1])
+    box_area = boxes_wh[..., 0] * boxes_wh[..., 1]
+    anchor_area = anchors[..., 0] * anchors[..., 1]
+
+    iou = intersection / (box_area + anchor_area - intersection)
+    return torch.argmax(iou, dim=-1)
+
+
+def preprocess_boxes(boxes, best_anchors, anchors, valid_anchors, grid_size, num_classes, num_anchors):
+    y_true = torch.zeros(grid_size, grid_size, num_anchors, (4 + 1 + num_classes))
+
+    indices, updates = [], []
+
+    for box, anchor in zip(boxes, best_anchors):
+        obj = box[..., 4][:, None]
+        cls = box[..., 5:]
+
+        anchor_found = any(
+            [torch.any(
+                torch.any(torch.eq(valid_anchor, anchors[anchor]), dim=1)
+            ).item() for valid_anchor in valid_anchors]
+        )
+        if anchor_found:
+            adjusted_anchor_index = anchor % 3
+            adjusted_anchor_index = adjusted_anchor_index.float()
+
+            box_xy = (box[..., :2] + box[..., 2:4]) / 2
+            box_wh = box[..., 2:4] - box[..., :2]
+
+            grid_cell_xy = box_xy // (1 / grid_size)
+
+            indices.extend(
+                torch.cat([grid_cell_xy[:, 1][:, None],
+                           grid_cell_xy[:, 0][:, None],
+                           adjusted_anchor_index[:, None]], dim=-1)
+            )
+            updates.extend(torch.cat([box_xy, box_wh, obj, cls], dim=-1))
+    indices = torch.stack(indices, dim=0).long()
+    updates = torch.stack(updates, dim=0)
+    y_true = y_true.tolist()
+    for index, update in zip(indices, updates):
+        y_true[index[0]][index[1]][index[2]] = update.tolist()
+    return torch.tensor(y_true)
