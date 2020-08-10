@@ -1,6 +1,6 @@
 import os
 from PIL import Image
-from torch import tensor, is_tensor
+from torch import tensor, is_tensor, stack
 from torchvision import transforms
 from collections import defaultdict
 from torch.nn.functional import pad
@@ -25,10 +25,7 @@ def collate_fn(_batch):
         ).tolist()
     if not is_tensor(batch_images[0]):
         batch_images = [transforms.ToTensor()(image) for image in batch_images]
-    return {
-        'images': batch_images,
-        'boxes': tensor(batch_boxes)
-    }
+    return stack(batch_images, dim=0), tensor(batch_boxes)
 
 
 class WiderDataset(Dataset):
@@ -55,7 +52,7 @@ class WiderDataset(Dataset):
         if self._transforms is not None:
             image = self._transforms(image)
         else:
-            image = transforms.Resize(416)(image)
+            image = transforms.Resize((416, 416))(image)
         return image
 
     def process_file(self):
@@ -71,10 +68,10 @@ class WiderDataset(Dataset):
                 boxes = []
                 for _ in range(n):
                     x, y, w, h, _, _, _, _, _, _ = map(int, next(txt_file, '').split())
-                    box = [x, y, w, h]
+                    box = [x, y, w, h, 1, 0, 1]
                     boxes.append(box)
                 if not n:
-                    boxes.append([0, 0, 0, 0])
+                    boxes.append([0, 0, 0, 0, 0, 1, 0])
                     next(txt_file)
                 _dataset['images_path'].append(image_path)
                 _dataset['boxes'].append(boxes)

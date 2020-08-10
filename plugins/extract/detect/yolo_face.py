@@ -197,6 +197,7 @@ class YoloFaceNetwork(torch.nn.Module):
                                out_channels=self.out_channels,
                                mode=mode)
             )
+        print(model)
         return model
 
     def forward(self, x):
@@ -289,6 +290,7 @@ def get_rel_true(y_true, valid_anchors_wh):
 
 
 def compute_abs_boxes(y_pred, num_classes, valid_anchors_wh, y_true=None):
+    print(y_pred[0].size(), y_pred[1].size(), y_pred[2].size())
     box_abs_pred, obj_pred, cls_pred = get_abs_pred(
         y_pred,
         valid_anchors_wh,

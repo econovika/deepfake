@@ -55,7 +55,7 @@ class TrainEvalModel:
         if model is None:
             self.model = YoloFaceNetwork(
                 num_classes=self.num_classes,
-                num_anchors=self.valid_anchors_wh
+                num_anchors=len(self.valid_anchors_wh)
             )
         else:
             self.model = load(model)

@@ -8,7 +8,7 @@ parser.add_argument('--model', type=str, default=None, metavar='M',
                     help='path to saved model to evaluate (default: None: define YoloV3-Face model and do training)')
 parser.add_argument('--num-classes', type=int, default=2, metavar='M',
                     help='number of classes to classify images (default: 2: object exists on image or not)')
-parser.add_argument('--valid-anchors-wh', type=str, default=None, metavar='M',
+parser.add_argument('--valid-anchors-wh', type=str, default='/home/ksenia/PycharmProjects/deepfake/plugins/extract/default_options/anchors', metavar='M',
                     help='path to file with anchors definition, '
                          'see default file for example of formatting (default: None: compute optimal anchors '
                          'from given training dataset)')
@@ -17,7 +17,7 @@ parser.add_argument('--train-batch-size', type=int, default=1, metavar='N',
                     help='input batch size for training (default: 1)')
 parser.add_argument('--eval-batch-size', type=int, default=1, metavar='N',
                     help='input batch size for evaluation (default: 1)')
-parser.add_argument('--epochs', type=int, default=10, metavar='N',
+parser.add_argument('--num-epochs', type=int, default=10, metavar='N',
                     help='number of epochs to train (default: 10)')
 parser.add_argument('--max-patience', type=int, default=5, metavar='N',
                     help='number of epochs to train successively with no loss improving before '
@@ -42,8 +42,8 @@ parser.add_argument('--seed', type=int, default=1, metavar='D',
 # Other settings:
 parser.add_argument('--log-interval', type=int, default=10, metavar='S',
                     help='how many batches to wait before logging training status')
-parser.add_argument('--num-processes', type=int, default=1, metavar='S',
-                    help='how many training processes to use (default: 1)')
+parser.add_argument('--num-workers', type=int, default=1, metavar='S',
+                    help='how many training workers to use (default: 1)')
 parser.add_argument('--cuda', action='store_true', default=False,
                     help='enables CUDA training')
 
@@ -51,16 +51,16 @@ parser.add_argument('--cuda', action='store_true', default=False,
 if __name__ == '__main__':
     args = parser.parse_args()
     input_data_paths = {
-        'train': args.train_input_path.split(),
-        'test': args.test_input_path.split()
+        'train': args.train_input_path.split(';'),
+        'eval': args.eval_input_path.split(';')
     }
     train_eval = TrainEvalModel(
-        args.model,
-        input_data_paths,
+        model=args.model,
+        input_data_paths=input_data_paths,
         train_batch_size=args.train_batch_size, eval_batch_size=args.eval_batch_size,
         lr=args.lr, momentum=args.momentum, num_epochs=args.num_epochs,
         log_interval=args.log_interval, num_workers=args.num_workers, max_patience=args.max_patience,
-        model_save_dir=args.model_save_dir, early_stopping=args.early_stopping,
+        model_save_dir=args.model_save_directory, early_stopping=args.early_stopping,
         cuda=args.cuda,
         seed=args.seed,
         valid_anchors_wh=args.valid_anchors_wh, num_classes=args.num_classes
